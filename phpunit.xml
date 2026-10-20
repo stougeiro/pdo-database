@@ -9,4 +9,15 @@
             <directory>tests</directory>
         </testsuite>
     </testsuites>
+    <source>
+        <include>
+            <directory>src</directory>
+        </include>
+    </source>
+    <coverage>
+        <report>
+            <text outputFile="build/coverage.txt"/>
+            <clover outputFile="build/coverage.xml"/>
+        </report>
+    </coverage>
 </phpunit>

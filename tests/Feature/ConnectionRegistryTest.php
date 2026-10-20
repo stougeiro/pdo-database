@@ -77,6 +77,56 @@ it('cannot turn off the error mode or fetch mode invariants', function () {
         ->and($pdo->getAttribute(PDO::ATTR_DEFAULT_FETCH_MODE))->toBe(PDO::FETCH_ASSOC);
 });
 
+it('rejects an empty connection name', function () {
+    ConnectionRegistry::configure(['  ' => ['driver' => 'sqlite', 'database' => ':memory:']]);
+})->throws(ConnectionException::class);
+
+it('rejects a non-string driver nickname', function () {
+    ConnectionRegistry::configure(['default' => ['driver' => 123]]);
+})->throws(ConnectionException::class);
+
+it('exposes the sqlite, mysql and postgres nicknames', function () {
+    expect(ConnectionRegistry::SQLITE)->toBe('sqlite')
+        ->and(ConnectionRegistry::MYSQL)->toBe('mysql')
+        ->and(ConnectionRegistry::POSTGRES)->toBe('postgres');
+});
+
+it('builds a mysql connection and driver lazily without connecting', function () {
+    ConnectionRegistry::configure([
+        'default' => [
+            'driver' => 'mysql',
+            'host' => 'localhost',
+            'port' => 3306,
+            'schema' => 'app',
+            'charset' => 'utf8mb4',
+            'username' => 'root',
+            'password' => 'secret',
+        ],
+    ]);
+
+    $connection = ConnectionRegistry::get();
+
+    expect($connection)->toBeInstanceOf(STDW\Pdo\Connection\PdoConnection::class)
+        ->and($connection->isConnected())->toBeFalse()
+        ->and(ConnectionRegistry::resolve())->toBeInstanceOf(DriverInterface::class);
+});
+
+it('builds a postgres connection and dialect lazily without connecting', function () {
+    ConnectionRegistry::configure([
+        'default' => [
+            'driver' => 'postgres',
+            'host' => 'db',
+            'port' => 5432,
+            'schema' => 'app',
+            'username' => 'postgres',
+            'password' => 'secret',
+        ],
+    ]);
+
+    expect(ConnectionRegistry::get()->isConnected())->toBeFalse()
+        ->and(ConnectionRegistry::resolve())->toBeInstanceOf(DriverInterface::class);
+});
+
 it('drops the registry on reset', function () {
     ConnectionRegistry::configure([
         'default' => ['driver' => 'sqlite', 'database' => ':memory:'],

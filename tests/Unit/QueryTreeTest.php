@@ -92,3 +92,27 @@ it('rejects cursor mixed with offset', function () {
 it('rejects a negative limit', function () {
     QueryTreeBuilder::pagination(['limit' => -1]);
 })->throws(QueryTreeException::class);
+
+it('omits the WHERE fragment when the dialect cannot express a cursor', function () {
+    $dialect = new class extends STDW\Pdo\Dialect\DialectAbstracted {
+        protected function delimiters(): array
+        {
+            return ['"', '"'];
+        }
+
+        protected function renderLimitOffset(?int $limit, ?int $offset): string
+        {
+            return '';
+        }
+
+        public function cursorClause(mixed $cursor, array $order, array &$params): ?string
+        {
+            return '';
+        }
+    };
+
+    $query = QueryTreeBuilder::query(pagination: ['limit' => 5, 'cursor' => 1]);
+    $sql = (new Compiler($dialect))->compile(new Statement(StatementKind::Select, 't', $query))['sql'];
+
+    expect($sql)->not->toContain('WHERE');
+});

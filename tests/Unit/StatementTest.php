@@ -63,3 +63,70 @@ it('rejects returning outside an insert', function () {
 it('rejects an empty table', function () {
     new Statement(StatementKind::Select, '   ');
 })->throws(StatementException::class);
+
+it('rejects a raw value in data before anything else runs', function () {
+    new Statement(
+        StatementKind::Insert,
+        'users',
+        data: ['name' => 'Ada'],
+    );
+})->throws(StatementException::class);
+
+it('reports the offending column when data is not typed', function () {
+    try {
+        new Statement(StatementKind::Insert, 'users', data: ['name' => 'Ada']);
+    } catch (StatementException $exception) {
+        expect($exception->getMessage())->toContain('name');
+    }
+});
+
+it('rejects a select carrying data', function () {
+    new Statement(StatementKind::Select, 'users', data: ['name' => Param::str('Ada')]);
+})->throws(StatementException::class);
+
+it('rejects a select carrying returning columns', function () {
+    new Statement(StatementKind::Select, 'users', returning: ['id']);
+})->throws(StatementException::class);
+
+it('rejects an update without data but with a filter', function () {
+    new Statement(StatementKind::Update, 'users', query: QueryTreeBuilder::query(filter: ['id' => 1]));
+})->throws(StatementException::class);
+
+it('rejects a delete carrying data', function () {
+    new Statement(
+        StatementKind::Delete,
+        'users',
+        query: QueryTreeBuilder::query(filter: ['id' => 1]),
+        data: ['name' => Param::str('Ada')],
+    );
+})->throws(StatementException::class);
+
+it('rejects returning on a delete', function () {
+    new Statement(
+        StatementKind::Delete,
+        'users',
+        query: QueryTreeBuilder::query(filter: ['id' => 1]),
+        returning: ['id'],
+    );
+})->throws(StatementException::class);
+
+it('accepts an update with data and a filter', function () {
+    $statement = new Statement(
+        StatementKind::Update,
+        'users',
+        query: QueryTreeBuilder::query(filter: ['id' => 1]),
+        data: ['name' => Param::str('Ada')],
+    );
+
+    expect($statement->data())->toHaveCount(1);
+});
+
+it('accepts a delete with a filter', function () {
+    $statement = new Statement(
+        StatementKind::Delete,
+        'users',
+        query: QueryTreeBuilder::query(filter: ['id' => 1]),
+    );
+
+    expect($statement->returning())->toBe([]);
+});

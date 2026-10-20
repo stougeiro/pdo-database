@@ -72,3 +72,71 @@ it('fails fast on an empty required value', function () {
 it('rejects non-string configuration keys', function () {
     SqliteConfig::from([':memory:']);
 })->throws(ConnectionException::class);
+
+it('rejects a non-array options value', function () {
+    SqliteConfig::from(['database' => ':memory:', 'options' => 'nope']);
+})->throws(ConnectionException::class);
+
+it('rejects a non-string value for a required string key', function () {
+    SqliteConfig::from(['database' => 123]);
+})->throws(ConnectionException::class);
+
+it('accepts a numeric string port and an int port alike', function () {
+    $base = [
+        'host' => 'localhost',
+        'schema' => 'app',
+        'charset' => 'utf8mb4',
+        'username' => 'root',
+        'password' => 'secret',
+    ];
+
+    expect(MysqlConfig::from($base + ['port' => '3306'])->port())->toBe(3306)
+        ->and(MysqlConfig::from($base + ['port' => 3306])->port())->toBe(3306);
+});
+
+it('rejects a missing port', function () {
+    MysqlConfig::from([
+        'host' => 'localhost',
+        'schema' => 'app',
+        'charset' => 'utf8mb4',
+        'username' => 'root',
+        'password' => 'secret',
+    ]);
+})->throws(ConnectionException::class);
+
+it('rejects an empty host', function () {
+    MysqlConfig::from([
+        'host' => '   ',
+        'port' => 3306,
+        'schema' => 'app',
+        'charset' => 'utf8mb4',
+        'username' => 'root',
+        'password' => 'secret',
+    ]);
+})->throws(ConnectionException::class);
+
+it('rejects an empty postgres host', function () {
+    PostgresConfig::from([
+        'host' => '  ',
+        'port' => 5432,
+        'schema' => 'app',
+        'username' => 'postgres',
+        'password' => 'secret',
+    ]);
+})->throws(ConnectionException::class);
+
+it('exposes the postgres credentials and options', function () {
+    $config = PostgresConfig::from([
+        'host' => 'db',
+        'port' => 5432,
+        'schema' => 'app',
+        'username' => 'postgres',
+        'password' => 'secret',
+        'options' => [PDO::ATTR_PERSISTENT => true],
+    ]);
+
+    expect($config->host())->toBe('db')
+        ->and($config->schema())->toBe('app')
+        ->and($config->password())->toBe('secret')
+        ->and($config->options())->toBe([PDO::ATTR_PERSISTENT => true]);
+});

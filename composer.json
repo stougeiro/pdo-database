@@ -43,7 +43,9 @@
     },
     "scripts": {
         "stan": "vendor/bin/phpstan",
-        "pest": "vendor/bin/pest"
+        "pest": "vendor/bin/pest",
+        "cover": "vendor/bin/pest --coverage --colors=never",
+        "bench": "BENCH=1 vendor/bin/pest tests/Performance --colors=never"
     },
     "config": {
         "allow-plugins": {
