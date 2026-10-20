@@ -44,7 +44,7 @@
     },
     "require": {
         "php": ">=8.2",
-        "stougeiro/pdo-contract": "^0.3.0"
+        "stougeiro/pdo-contract": "^1.0.0"
     },
     "autoload-dev": {
         "psr-4": {
