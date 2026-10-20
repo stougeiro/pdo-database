@@ -1,0 +1,101 @@
+<?php declare(strict_types=1);
+
+namespace STDW\Pdo\Config;
+
+use STDW\Contract\Pdo\ConfigInterface;
+use STDW\Pdo\Exception\ConnectionException;
+
+
+/**
+ * Configuration for PostgreSQL.
+ *
+ * Required keys: host, port, schema (= database name), username, password.
+ * There are no silent defaults; a missing key fails fast.
+ *
+ * DSN: "pgsql:host=…;port=…;dbname=<schema>".
+ */
+final class PostgresConfig implements ConfigInterface
+{
+    use ConfigValidationTrait;
+
+
+    /**
+     * @param array<array-key, mixed> $options
+     */
+    private function __construct(
+        private readonly string $host,
+        private readonly int $port,
+        private readonly string $schema,
+        private readonly string $username,
+        private readonly string $password,
+        private readonly array $options,
+    ) {
+    }
+
+    /**
+     * @param array<array-key, mixed> $config
+     */
+    public static function from(array $config): self
+    {
+        $config = self::normalize($config);
+
+        $host = self::requiredString($config, 'host');
+        $schema = self::requiredString($config, 'schema');
+
+        foreach (['host' => $host, 'schema' => $schema] as $key => $value) {
+            if (trim($value) === '') {
+                throw ConnectionException::invalid($key);
+            }
+        }
+
+        return new self(
+            $host,
+            self::requiredInt($config, 'port'),
+            $schema,
+            self::requiredString($config, 'username'),
+            self::requiredString($config, 'password'),
+            self::rawOptions($config),
+        );
+    }
+
+
+    public function host(): string
+    {
+        return $this->host;
+    }
+
+    public function port(): int
+    {
+        return $this->port;
+    }
+
+    public function schema(): string
+    {
+        return $this->schema;
+    }
+
+    public function dsn(): string
+    {
+        return sprintf(
+            'pgsql:host=%s;port=%d;dbname=%s',
+            $this->host,
+            $this->port,
+            $this->schema,
+        );
+    }
+
+    public function username(): string
+    {
+        return $this->username;
+    }
+
+    public function password(): string
+    {
+        return $this->password;
+    }
+
+    public function options(): array
+    {
+        return $this->options;
+    }
+}
