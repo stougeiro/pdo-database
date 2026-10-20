@@ -44,7 +44,13 @@
     },
     "require": {
         "php": ">=8.2",
+        "ext-pdo": "*",
         "stougeiro/pdo-contract": "^1.0.0"
+    },
+    "suggest": {
+        "ext-pdo_sqlite": "For the sqlite driver",
+        "ext-pdo_mysql": "For the mysql/mariadb driver",
+        "ext-pdo_pgsql": "For the postgres driver"
     },
     "autoload-dev": {
         "psr-4": {
