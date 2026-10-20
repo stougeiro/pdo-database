@@ -2,13 +2,13 @@
 
 namespace STDW\Pdo\Driver;
 
+use STDW\Contract\Pdo\DialectInterface;
 use STDW\Contract\Pdo\Param\ParamInterface;
 use STDW\Contract\Pdo\QueryTree\Node\AggregateNodeInterface;
 use STDW\Contract\Pdo\QueryTree\Node\CursorPaginationNodeInterface;
 use STDW\Contract\Pdo\QueryTree\QueryInterface;
 use STDW\Contract\Pdo\Statement\StatementInterface;
 use STDW\Contract\Pdo\Statement\Type\StatementKind;
-use STDW\Pdo\Dialect\Spec\DialectSpecInterface;
 
 
 /**
@@ -19,12 +19,13 @@ use STDW\Pdo\Dialect\Spec\DialectSpecInterface;
  * projection, DISTINCT, GROUP BY/HAVING, aggregates, WHERE). The dialect
  * supplies only what diverges: identifier quoting, operator rendering,
  * row limiting and NULL ordering. Values are always placeholders; tables and
- * columns are quoted identifiers.
+ * columns are quoted identifiers. Whether a write requests RETURNING is the
+ * driver's call — the compiler renders the columns the statement carries.
  */
 final class Compiler
 {
     public function __construct(
-        private readonly DialectSpecInterface $dialect,
+        private readonly DialectInterface $dialect,
     ) {
     }
 
@@ -119,7 +120,7 @@ final class Compiler
 
         $returning = $statement->returning();
 
-        if ($returning !== [] && $this->dialect->supportsReturning()) {
+        if ($returning !== []) {
             $sql .= ' RETURNING ' . implode(', ', array_map($this->dialect->quote(...), $returning));
         }
 

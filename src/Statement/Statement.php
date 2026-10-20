@@ -24,6 +24,8 @@ final readonly class Statement implements StatementInterface
 
     private readonly string $table;
 
+    private readonly string $key;
+
     private readonly ?QueryInterface $query;
 
     /** @var array<string, ParamInterface> */
@@ -43,6 +45,7 @@ final readonly class Statement implements StatementInterface
         ?QueryInterface $query = null,
         array $data = [],
         array $returning = [],
+        string $key = 'id',
     ) {
         if (trim($table) === '') {
             throw StatementException::invalid('the target table cannot be empty');
@@ -50,6 +53,7 @@ final readonly class Statement implements StatementInterface
 
         $this->kind = $kind;
         $this->table = $table;
+        $this->key = $key;
         $this->query = $query;
         $this->data = self::typedData($data);
         $this->returning = $returning;
@@ -66,6 +70,11 @@ final readonly class Statement implements StatementInterface
     public function table(): string
     {
         return $this->table;
+    }
+
+    public function key(): string
+    {
+        return $this->key;
     }
 
     public function query(): ?QueryInterface

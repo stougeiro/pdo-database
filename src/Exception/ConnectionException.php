@@ -50,6 +50,20 @@ final class ConnectionException extends DatabaseException implements ConnectionE
         );
     }
 
+    public static function queryFailed(string $sql, Throwable $previous): self
+    {
+        return new self(
+            sprintf('Query execution failed (%s): %s', substr($sql, 0, 200), $previous->getMessage()),
+            (int) $previous->getCode(),
+            $previous,
+        );
+    }
+
+    public static function parameterRequired(string $bind): self
+    {
+        return new self(sprintf('A typed Param value is required for bind "%s"', $bind));
+    }
+
     public static function tableNotDeclared(string $class): self
     {
         return new self(sprintf('Class "%s" must declare a non-empty table', $class));

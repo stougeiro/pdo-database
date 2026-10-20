@@ -7,7 +7,7 @@ use STDW\Contract\Pdo\QueryTree\Node\ConditionNodeInterface;
 use STDW\Contract\Pdo\QueryTree\Node\GroupNodeInterface;
 use STDW\Contract\Pdo\QueryTree\Node\LogicNodeInterface;
 use STDW\Contract\Pdo\QueryTree\Type\ConditionOperator;
-use STDW\Pdo\Dialect\Spec\DialectSpecInterface;
+use STDW\Contract\Pdo\DialectInterface;
 use STDW\Pdo\Exception\DriverException;
 
 
@@ -30,7 +30,7 @@ final class Conditions
     /**
      * @return array{sql: string, params: array<int, ParamInterface>}
      */
-    public static function compile(?GroupNodeInterface $filter, DialectSpecInterface $dialect): array
+    public static function compile(?GroupNodeInterface $filter, DialectInterface $dialect): array
     {
         $params = [];
         $sql = $filter === null ? '' : self::group($filter, $dialect, $params);
@@ -42,7 +42,7 @@ final class Conditions
     /**
      * @param array<int, ParamInterface> $params
      */
-    private static function group(GroupNodeInterface $group, DialectSpecInterface $dialect, array &$params): string
+    private static function group(GroupNodeInterface $group, DialectInterface $dialect, array &$params): string
     {
         $accumulated = null;
         $pending = 'AND';
@@ -87,7 +87,7 @@ final class Conditions
     /**
      * @param array<int, ParamInterface> $params
      */
-    private static function condition(ConditionNodeInterface $node, DialectSpecInterface $dialect, array &$params): string
+    private static function condition(ConditionNodeInterface $node, DialectInterface $dialect, array &$params): string
     {
         $column = $dialect->quote($node->column());
         $operator = $node->operator();
@@ -114,7 +114,7 @@ final class Conditions
         string $column,
         ConditionOperator $operator,
         mixed $value,
-        DialectSpecInterface $dialect,
+        DialectInterface $dialect,
         array &$params,
     ): string {
         $params[] = self::param($column, $value);
@@ -129,7 +129,7 @@ final class Conditions
         string $column,
         ConditionOperator $operator,
         mixed $value,
-        DialectSpecInterface $dialect,
+        DialectInterface $dialect,
         array &$params,
     ): string {
         $params[] = self::param($column, $value);
@@ -150,7 +150,7 @@ final class Conditions
     private static function in(string $column, null|ParamInterface|array $value, array &$params, bool $negated): string
     {
         if ( ! is_array($value) || ! array_is_list($value)) {
-            throw DriverException::dialectGap(sprintf('operator IN on column "%s" requires a list of typed values', $column));
+            throw DriverException::malformedCondition($column, 'operator IN requires a list of typed values');
         }
 
         if ($value === []) {
@@ -174,7 +174,7 @@ final class Conditions
     private static function between(string $column, null|ParamInterface|array $value, array &$params, bool $negated): string
     {
         if ( ! is_array($value) || ! array_is_list($value) || count($value) !== 2) {
-            throw DriverException::dialectGap(sprintf('operator BETWEEN on column "%s" requires exactly two typed values', $column));
+            throw DriverException::malformedCondition($column, 'operator BETWEEN requires exactly two typed values');
         }
 
         $params[] = self::param($column, $value[0]);

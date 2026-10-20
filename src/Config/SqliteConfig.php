@@ -24,6 +24,8 @@ final class SqliteConfig implements ConfigInterface
     private function __construct(
         private readonly string $database,
         private readonly array $options,
+        private readonly bool $supportsReturning,
+        private readonly bool $emulateReturning,
     ) {
     }
 
@@ -40,7 +42,12 @@ final class SqliteConfig implements ConfigInterface
             throw ConnectionException::invalid('database');
         }
 
-        return new self($database, self::rawOptions($config));
+        return new self(
+            $database,
+            self::rawOptions($config),
+            self::supportsReturningFlag($config),
+            self::emulateReturningFlag($config),
+        );
     }
 
     public function database(): string
@@ -66,5 +73,15 @@ final class SqliteConfig implements ConfigInterface
     public function options(): array
     {
         return $this->options;
+    }
+
+    public function supportsReturning(): bool
+    {
+        return $this->supportsReturning;
+    }
+
+    public function emulateReturning(): bool
+    {
+        return $this->emulateReturning;
     }
 }

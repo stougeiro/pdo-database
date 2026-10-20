@@ -16,7 +16,7 @@ final class DriverException extends DatabaseException implements DriverException
     public static function executionFailed(string $sql, Throwable $previous): self
     {
         return new self(
-            sprintf('Query execution failed (%s): %s', mb_substr($sql, 0, 200), $previous->getMessage()),
+            sprintf('Query execution failed (%s): %s', substr($sql, 0, 200), $previous->getMessage()),
             (int) $previous->getCode(),
             $previous,
         );
@@ -32,13 +32,13 @@ final class DriverException extends DatabaseException implements DriverException
         return new self(sprintf('A typed Param value is required for column "%s"', $column));
     }
 
+    public static function malformedCondition(string $column, string $reason): self
+    {
+        return new self(sprintf('Malformed condition on column "%s": %s', $column, $reason));
+    }
+
     public static function cursorRequiresOrder(): self
     {
         return new self('Cursor/keyset pagination requires an explicit ORDER BY column for this dialect');
-    }
-
-    public static function dialectGap(string $reason): self
-    {
-        return new self(sprintf('Unsupported dialect operation: %s', $reason));
     }
 }

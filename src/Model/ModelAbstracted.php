@@ -48,27 +48,39 @@ abstract class ModelAbstracted implements ModelInterface
         return $this->table;
     }
 
+    /**
+     * Inserts one record and returns it. Raw values are accepted and each is
+     * wrapped into a typed Param before it reaches the compiler; passing a
+     * Param is honored as-is. The returned record reflects what the database
+     * stored (the wildcard returning), so database-filled columns — defaults,
+     * timestamps, generated values — come back too.
+     *
+     * @param array<string, mixed> $data
+     */
     public function create(array $data): ResultInterface
     {
-        $raw = $this->execute(new Statement(
+        $raw = $this->translate(new Statement(
             kind: StatementKind::Insert,
             table: $this->table(),
             data: $this->params($data),
-            returning: [$this->key],
+            returning: ['*'],
+            key: $this->key,
         ));
 
-        $insertedId = $raw->insertedId();
+        $row = $raw->rows()[0] ?? null;
 
-        $created = $insertedId === null
-            ? $data
-            : array_merge($data, [$this->key => $insertedId]);
-
-        return Result::ok($created, $raw->affected() > 0 ? 1 : 0);
+        return Result::ok($row ?? $data, $raw->affected() > 0 ? 1 : 0);
     }
 
+    /**
+     * Returns a single record matching the filter. Filter values may be raw
+     * (wrapped internally) or explicit Params.
+     *
+     * @param array<string, mixed> $filter
+     */
     public function read(array $filter): ResultInterface
     {
-        $raw = $this->execute(new Statement(
+        $raw = $this->translate(new Statement(
             kind: StatementKind::Select,
             table: $this->table(),
             query: QueryTreeBuilder::query(filter: $filter, pagination: ['limit' => 1]),
@@ -79,9 +91,17 @@ abstract class ModelAbstracted implements ModelInterface
         return Result::ok($row, $row === null ? 0 : 1);
     }
 
+    /**
+     * Returns the records matching the filter, ordered and paginated. Filter
+     * values may be raw (wrapped internally) or explicit Params.
+     *
+     * @param array<string, mixed> $filter
+     * @param array<mixed> $order
+     * @param array<string, mixed> $pagination
+     */
     public function list(array $filter = [], array $order = [], array $pagination = []): ResultInterface
     {
-        $raw = $this->execute(new Statement(
+        $raw = $this->translate(new Statement(
             kind: StatementKind::Select,
             table: $this->table(),
             query: QueryTreeBuilder::query(filter: $filter, order: $order, pagination: $pagination),
@@ -92,9 +112,16 @@ abstract class ModelAbstracted implements ModelInterface
         return Result::ok($rows, count($rows));
     }
 
+    /**
+     * Updates the records matching the filter. Raw data values are wrapped into
+     * typed Params internally; the filter follows the read/list rules.
+     *
+     * @param array<string, mixed> $data
+     * @param array<string, mixed> $filter
+     */
     public function update(array $data, array $filter): ResultInterface
     {
-        $raw = $this->execute(new Statement(
+        $raw = $this->translate(new Statement(
             kind: StatementKind::Update,
             table: $this->table(),
             query: QueryTreeBuilder::query(filter: $filter),
@@ -104,9 +131,15 @@ abstract class ModelAbstracted implements ModelInterface
         return Result::ok(null, $raw->affected());
     }
 
+    /**
+     * Deletes the records matching the filter. Filter values may be raw
+     * (wrapped internally) or explicit Params; an empty filter is rejected.
+     *
+     * @param array<string, mixed> $filter
+     */
     public function delete(array $filter): ResultInterface
     {
-        $raw = $this->execute(new Statement(
+        $raw = $this->translate(new Statement(
             kind: StatementKind::Delete,
             table: $this->table(),
             query: QueryTreeBuilder::query(filter: $filter),
@@ -121,9 +154,9 @@ abstract class ModelAbstracted implements ModelInterface
         return $this->driver ??= ConnectionRegistry::resolve($this->connection);
     }
 
-    private function execute(StatementInterface $statement): RawInterface
+    private function translate(StatementInterface $statement): RawInterface
     {
-        return $this->driver()->execute($statement);
+        return $this->driver()->translate($statement);
     }
 
     /**

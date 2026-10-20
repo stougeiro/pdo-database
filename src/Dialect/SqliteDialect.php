@@ -16,10 +16,18 @@ use STDW\Pdo\Param\Param;
  * - LIMIT: an offset without a limit still needs "LIMIT -1";
  * - the generated key comes from lastInsertId();
  * - keyset cursors fall back to the internal rowid when no ORDER BY is given;
- * - NULLS FIRST/LAST is native (modern SQLite).
+ * - NULLS FIRST/LAST is native (modern SQLite);
+ * - a native RETURNING clause is available on SQLite >= 3.35; on an older
+ *   server declare supportsReturning: false on the config, which drops the
+ *   connection to the last-insert-id fallback.
  */
 final class SqliteDialect extends DialectAbstracted
 {
+    public function supportsReturning(): bool
+    {
+        return true;
+    }
+
     public function nulls(OrderNodeInterface $order): string
     {
         return match ($order->nulls()) {

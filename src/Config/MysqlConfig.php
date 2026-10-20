@@ -30,6 +30,8 @@ final class MysqlConfig implements ConfigInterface
         private readonly string $username,
         private readonly string $password,
         private readonly array $options,
+        private readonly bool $supportsReturning,
+        private readonly bool $emulateReturning,
     ) {
     }
 
@@ -59,6 +61,8 @@ final class MysqlConfig implements ConfigInterface
             self::requiredString($config, 'username'),
             self::requiredString($config, 'password'),
             self::rawOptions($config),
+            self::supportsReturningFlag($config),
+            self::emulateReturningFlag($config),
         );
     }
 
@@ -107,5 +111,15 @@ final class MysqlConfig implements ConfigInterface
     public function options(): array
     {
         return $this->options;
+    }
+
+    public function supportsReturning(): bool
+    {
+        return $this->supportsReturning;
+    }
+
+    public function emulateReturning(): bool
+    {
+        return $this->emulateReturning;
     }
 }

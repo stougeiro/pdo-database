@@ -86,4 +86,40 @@ trait ConfigValidationTrait
 
         return $value;
     }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private static function supportsReturningFlag(array $config): bool
+    {
+        if ( ! array_key_exists('supportsReturning', $config)) {
+            return true;
+        }
+
+        $value = $config['supportsReturning'];
+
+        if ( ! is_bool($value)) {
+            throw ConnectionException::invalid('supportsReturning');
+        }
+
+        return $value;
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private static function emulateReturningFlag(array $config): bool
+    {
+        if ( ! array_key_exists('emulateReturning', $config)) {
+            return true;
+        }
+
+        $value = $config['emulateReturning'];
+
+        if ( ! is_bool($value)) {
+            throw ConnectionException::invalid('emulateReturning');
+        }
+
+        return $value;
+    }
 }

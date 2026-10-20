@@ -2,13 +2,16 @@
 
 namespace STDW\Pdo;
 
+use STDW\Contract\Pdo\ConfigInterface;
 use STDW\Contract\Pdo\ConnectionInterface;
+use STDW\Contract\Pdo\DialectInterface;
 use STDW\Contract\Pdo\DriverInterface;
+use STDW\Pdo\Config\MariaDbConfig;
 use STDW\Pdo\Config\MysqlConfig;
 use STDW\Pdo\Config\PostgresConfig;
 use STDW\Pdo\Config\SqliteConfig;
 use STDW\Pdo\Connection\PdoConnection;
-use STDW\Pdo\Dialect\Spec\DialectSpecInterface;
+use STDW\Pdo\Dialect\MariaDbDialect;
 use STDW\Pdo\Dialect\MysqlDialect;
 use STDW\Pdo\Dialect\PostgresDialect;
 use STDW\Pdo\Dialect\SqliteDialect;
@@ -22,13 +25,14 @@ use STDW\Pdo\Exception\ConnectionException;
  *
  * It is the place reached outside the Model: cross-model transactions use
  * the shared Connection from get(); raw SQL/IR uses the Driver from resolve().
- * Nothing connects until the first pdo()/query; get() caches one Connection
- * per name so a transaction spans every Model bound to it.
+ * Nothing connects until the first query; get() caches one Connection per
+ * name so a transaction spans every Model bound to it.
  */
 final class ConnectionRegistry
 {
     public const SQLITE = 'sqlite';
     public const MYSQL = 'mysql';
+    public const MARIADB = 'mariadb';
     public const POSTGRES = 'postgres';
 
 
@@ -38,7 +42,7 @@ final class ConnectionRegistry
     private static array $definitions = [];
 
     /**
-     * @var array<string, ConnectionInterface>
+     * @var array<string, array{connection: PdoConnection, dialect: DialectInterface, supportsReturning: bool, emulateReturning: bool}>
      */
     private static array $connections = [];
 
@@ -64,7 +68,7 @@ final class ConnectionRegistry
 
             $driver = $definition['driver'] ?? null;
 
-            if ( ! is_string($driver) || ! in_array($driver, [self::SQLITE, self::MYSQL, self::POSTGRES], true)) {
+            if ( ! is_string($driver) || ! in_array($driver, [self::SQLITE, self::MYSQL, self::MARIADB, self::POSTGRES], true)) {
                 throw ConnectionException::unknownDriver(is_string($driver) ? $driver : get_debug_type($driver));
             }
 
@@ -83,13 +87,7 @@ final class ConnectionRegistry
      */
     public static function get(string $name = 'default'): ConnectionInterface
     {
-        if (isset(self::$connections[$name])) {
-            return self::$connections[$name];
-        }
-
-        $definition = self::definition($name);
-
-        return self::$connections[$name] = self::connect($definition['driver'], $definition['config']);
+        return self::pair($name)['connection'];
     }
 
     /**
@@ -97,9 +95,9 @@ final class ConnectionRegistry
      */
     public static function resolve(string $name = 'default'): DriverInterface
     {
-        $definition = self::definition($name);
+        $pair = self::pair($name);
 
-        return new PdoDriver(self::get($name), self::dialect($definition['driver']));
+        return new PdoDriver($pair['connection'], $pair['dialect'], $pair['supportsReturning'], $pair['emulateReturning']);
     }
 
     /**
@@ -107,9 +105,9 @@ final class ConnectionRegistry
      */
     public static function reset(): void
     {
-        foreach (self::$connections as $connection) {
-            if ($connection->isConnected()) {
-                $connection->disconnect();
+        foreach (self::$connections as $pair) {
+            if ($pair['connection']->isConnected()) {
+                $pair['connection']->disconnect();
             }
         }
 
@@ -117,6 +115,20 @@ final class ConnectionRegistry
         self::$definitions = [];
     }
 
+
+    /**
+     * @return array{connection: PdoConnection, dialect: DialectInterface, supportsReturning: bool, emulateReturning: bool}
+     */
+    private static function pair(string $name): array
+    {
+        if (isset(self::$connections[$name])) {
+            return self::$connections[$name];
+        }
+
+        $definition = self::definition($name);
+
+        return self::$connections[$name] = self::build($definition['driver'], $definition['config']);
+    }
 
     /**
      * @return array{driver: string, config: array<string, mixed>}
@@ -132,28 +144,31 @@ final class ConnectionRegistry
 
     /**
      * @param array<string, mixed> $config
+     * @return array{connection: PdoConnection, dialect: DialectInterface, supportsReturning: bool, emulateReturning: bool}
      */
-    private static function connect(string $driver, array $config): PdoConnection
+    private static function build(string $driver, array $config): array
     {
         return match ($driver) {
-            self::SQLITE => new PdoConnection(SqliteConfig::from($config)),
-            self::MYSQL => new PdoConnection(MysqlConfig::from($config)),
-            self::POSTGRES => new PdoConnection(PostgresConfig::from($config)),
+            self::SQLITE => self::compose(SqliteConfig::from($config), new SqliteDialect()),
+            self::MYSQL => self::compose(MysqlConfig::from($config), new MysqlDialect()),
+            self::MARIADB => self::compose(MariaDbConfig::from($config), new MariaDbDialect()),
+            self::POSTGRES => self::compose(PostgresConfig::from($config), new PostgresDialect()),
             // @codeCoverageIgnoreStart configure() already rejected any other nickname.
             default => throw ConnectionException::unknownDriver($driver),
             // @codeCoverageIgnoreEnd
         };
     }
 
-    private static function dialect(string $driver): DialectSpecInterface
+    /**
+     * @return array{connection: PdoConnection, dialect: DialectInterface, supportsReturning: bool, emulateReturning: bool}
+     */
+    private static function compose(ConfigInterface $config, DialectInterface $dialect): array
     {
-        return match ($driver) {
-            self::SQLITE => new SqliteDialect(),
-            self::MYSQL => new MysqlDialect(),
-            self::POSTGRES => new PostgresDialect(),
-            // @codeCoverageIgnoreStart configure() already rejected any other nickname.
-            default => throw ConnectionException::unknownDriver($driver),
-            // @codeCoverageIgnoreEnd
-        };
+        return [
+            'connection' => new PdoConnection($config),
+            'dialect' => $dialect,
+            'supportsReturning' => $config->supportsReturning(),
+            'emulateReturning' => $config->emulateReturning(),
+        ];
     }
 }
