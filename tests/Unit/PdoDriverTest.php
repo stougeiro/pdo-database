@@ -2,8 +2,6 @@
 
 use STDW\Pdo\Config\SqliteConfig;
 use STDW\Pdo\Connection\PdoConnection;
-use STDW\Pdo\Dialect\DialectAbstracted;
-use STDW\Pdo\Dialect\Spec\DialectSpecInterface;
 use STDW\Pdo\Dialect\SqliteDialect;
 use STDW\Pdo\Driver\PdoDriver;
 use STDW\Pdo\Exception\DriverException;
@@ -14,43 +12,17 @@ use STDW\Pdo\Statement\Statement;
 use STDW\Contract\Pdo\Statement\Type\StatementKind;
 
 /**
- * SQLite's own dialect reports supportsReturning() = false, so to reach the
- * RETURNING branch of the driver we run against real SQLite (which does
- * support RETURNING since 3.35) with a dialect that opts in. Same delimiters
- * and LIMIT/OFFSET, only the generated-key strategy differs.
+ * SQLite supports RETURNING since 3.35, so SqliteDialect opts in and the
+ * driver takes the native branch by default. The last-insert-id and emulation
+ * branches are reached by turning the config flag off (supportsReturning:
+ * false), which is how an older server would be declared. The two switches
+ * are independent: supportsReturning wins, emulateReturning is consulted only
+ * when it is off.
  */
-function returningSqliteDialect(): DialectSpecInterface
-{
-    return new class extends DialectAbstracted {
-        protected function delimiters(): array
-        {
-            return ['"', '"'];
-        }
-
-        public function supportsReturning(): bool
-        {
-            return true;
-        }
-
-        protected function renderLimitOffset(?int $limit, ?int $offset): string
-        {
-            if ($limit === null && $offset === null) {
-                return '';
-            }
-
-            if ($limit === null) {
-                return ' LIMIT -1 OFFSET ' . $offset;
-            }
-
-            return ' LIMIT ' . $limit . ($offset !== null ? ' OFFSET ' . $offset : '');
-        }
-    };
-}
-
 function memoryConnection(): PdoConnection
 {
     $connection = new PdoConnection(SqliteConfig::from(['database' => ':memory:']));
-    $connection->pdo()->exec(
+    $connection->execute(
         'CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, age INTEGER)'
     );
 
@@ -59,11 +31,11 @@ function memoryConnection(): PdoConnection
 
 it('selects rows through the driver', function () {
     $connection = memoryConnection();
-    $connection->pdo()->exec("INSERT INTO users (name, age) VALUES ('Ada', 36), ('Grace', 45)");
+    $connection->execute("INSERT INTO users (name, age) VALUES ('Ada', 36), ('Grace', 45)");
 
     $driver = new PdoDriver($connection, new SqliteDialect());
 
-    $raw = $driver->execute(new Statement(
+    $raw = $driver->translate(new Statement(
         StatementKind::Select,
         'users',
         QueryTreeBuilder::query(order: ['id' => 'asc']),
@@ -78,30 +50,30 @@ it('binds typed params instead of interpolating them', function () {
     $connection = memoryConnection();
     $driver = new PdoDriver($connection, new SqliteDialect());
 
-    $driver->execute(new Statement(
+    $driver->translate(new Statement(
         StatementKind::Insert,
         'users',
         data: ['name' => Param::str("Ada'; DROP TABLE users; --"), 'age' => Param::int(36)],
     ));
 
-    $raw = $driver->execute(new Statement(StatementKind::Select, 'users'));
+    $raw = $driver->translate(new Statement(StatementKind::Select, 'users'));
 
     expect($raw->rows()[0]['name'])->toBe("Ada'; DROP TABLE users; --");
 });
 
 it('returns affected count for update and delete', function () {
     $connection = memoryConnection();
-    $connection->pdo()->exec("INSERT INTO users (name, age) VALUES ('Ada', 36), ('Grace', 45)");
+    $connection->execute("INSERT INTO users (name, age) VALUES ('Ada', 36), ('Grace', 45)");
     $driver = new PdoDriver($connection, new SqliteDialect());
 
-    $updated = $driver->execute(new Statement(
+    $updated = $driver->translate(new Statement(
         StatementKind::Update,
         'users',
         query: QueryTreeBuilder::query(filter: ['id' => 1]),
         data: ['name' => Param::str('Ada L.')],
     ));
 
-    $deleted = $driver->execute(new Statement(
+    $deleted = $driver->translate(new Statement(
         StatementKind::Delete,
         'users',
         query: QueryTreeBuilder::query(filter: ['id' => 1]),
@@ -113,23 +85,24 @@ it('returns affected count for update and delete', function () {
 
 it('reads the generated key from lastInsertId when RETURNING is off', function () {
     $connection = memoryConnection();
-    $driver = new PdoDriver($connection, new SqliteDialect());
+    $driver = new PdoDriver($connection, new SqliteDialect(), supportsReturning: false, emulateReturning: false);
 
-    $raw = $driver->execute(new Statement(
+    $raw = $driver->translate(new Statement(
         StatementKind::Insert,
         'users',
         data: ['name' => Param::str('Ada')],
         returning: ['id'],
     ));
 
-    expect($raw->insertedId())->toBe(1);
+    expect($raw->insertedId())->toBe(1)
+        ->and($raw->rows())->toBe([]);
 });
 
 it('reads the generated key from the RETURNING row when supported', function () {
     $connection = memoryConnection();
-    $driver = new PdoDriver($connection, returningSqliteDialect());
+    $driver = new PdoDriver($connection, new SqliteDialect());
 
-    $raw = $driver->execute(new Statement(
+    $raw = $driver->translate(new Statement(
         StatementKind::Insert,
         'users',
         data: ['name' => Param::str('Ada'), 'age' => Param::int(36)],
@@ -138,14 +111,14 @@ it('reads the generated key from the RETURNING row when supported', function () 
 
     expect($raw->rows())->toHaveCount(1)
         ->and($raw->insertedId())->toBe(1)
-        ->and($raw->affected())->toBe(0);
+        ->and($raw->affected())->toBe(1);
 });
 
 it('falls back to the first returned column when the key column is not present', function () {
     $connection = memoryConnection();
-    $driver = new PdoDriver($connection, returningSqliteDialect());
+    $driver = new PdoDriver($connection, new SqliteDialect());
 
-    $raw = $driver->execute(new Statement(
+    $raw = $driver->translate(new Statement(
         StatementKind::Insert,
         'users',
         data: ['name' => Param::str('Ada')],
@@ -155,11 +128,75 @@ it('falls back to the first returned column when the key column is not present',
     expect($raw->insertedId())->toBe(1);
 });
 
+it('prefers the native RETURNING over emulateReturning when both are on', function () {
+    $connection = memoryConnection();
+    $driver = new PdoDriver($connection, new SqliteDialect(), supportsReturning: true, emulateReturning: true);
+
+    $raw = $driver->translate(new Statement(
+        StatementKind::Insert,
+        'users',
+        data: ['name' => Param::str('Ada')],
+        returning: ['id'],
+    ));
+
+    expect($raw->rows())->toHaveCount(1)
+        ->and($raw->insertedId())->toBe(1);
+});
+
+it('emulates RETURNING by reading the stored record back through the key', function () {
+    $connection = memoryConnection();
+    $driver = new PdoDriver($connection, new SqliteDialect(), supportsReturning: false);
+
+    $raw = $driver->translate(new Statement(
+        StatementKind::Insert,
+        'users',
+        data: ['name' => Param::str('Ada'), 'age' => Param::int(36)],
+        returning: ['*'],
+        key: 'id',
+    ));
+
+    expect($raw->insertedId())->toBe(1)
+        ->and($raw->affected())->toBe(1)
+        ->and($raw->rows())->toHaveCount(1)
+        ->and($raw->rows()[0]['name'])->toBe('Ada')
+        ->and($raw->rows()[0]['age'])->toBe(36)
+        ->and($raw->rows()[0]['id'])->toBe(1);
+});
+
+it('skips the emulation select when emulateReturning is off', function () {
+    $connection = memoryConnection();
+    $driver = new PdoDriver($connection, new SqliteDialect(), supportsReturning: false, emulateReturning: false);
+
+    $raw = $driver->translate(new Statement(
+        StatementKind::Insert,
+        'users',
+        data: ['name' => Param::str('Ada')],
+        returning: ['*'],
+        key: 'id',
+    ));
+
+    expect($raw->insertedId())->toBe(1)
+        ->and($raw->affected())->toBe(1)
+        ->and($raw->rows())->toBe([]);
+});
+
 it('wraps a PDO failure into a DriverException', function () {
     $connection = memoryConnection();
     $driver = new PdoDriver($connection, new SqliteDialect());
 
-    $driver->execute(new Statement(StatementKind::Select, 'missing_table'));
+    $driver->translate(new Statement(StatementKind::Select, 'missing_table'));
+})->throws(DriverException::class);
+
+it('wraps a failed write into a DriverException', function () {
+    $connection = memoryConnection();
+    $driver = new PdoDriver($connection, new SqliteDialect());
+
+    $driver->translate(new Statement(
+        StatementKind::Update,
+        'missing_table',
+        query: QueryTreeBuilder::query(filter: ['id' => 1]),
+        data: ['name' => Param::str('Ada')],
+    ));
 })->throws(DriverException::class);
 
 it('returns a param as-is through Raw', function () {

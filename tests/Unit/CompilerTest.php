@@ -5,7 +5,7 @@ use STDW\Contract\Pdo\QueryTree\Type\NullOrdering;
 use STDW\Contract\Pdo\QueryTree\Type\OrderDirection;
 use STDW\Contract\Pdo\Statement\Type\StatementKind;
 use STDW\Pdo\Driver\Compiler;
-use STDW\Pdo\Dialect\Spec\DialectSpecInterface;
+use STDW\Contract\Pdo\DialectInterface;
 use STDW\Pdo\Dialect\MysqlDialect;
 use STDW\Pdo\Dialect\PostgresDialect;
 use STDW\Pdo\Dialect\SqliteDialect;
@@ -18,7 +18,7 @@ use STDW\Pdo\Statement\Statement;
 /**
  * @return array{sql: string, params: array<int, STDW\Contract\Pdo\Param\ParamInterface>}
  */
-function compileSql(DialectSpecInterface $dialect, Statement $statement): array
+function compileSql(DialectInterface $dialect, Statement $statement): array
 {
     return (new Compiler($dialect))->compile($statement);
 }
@@ -55,7 +55,7 @@ it('compiles projection, distinct, group by, aggregate and having', function () 
     )->and($compiled['params'])->toHaveCount(1);
 });
 
-it('compiles insert with and without returning per dialect', function () {
+it('renders the RETURNING columns the statement carries, per dialect quoting', function () {
     $statement = new Statement(
         StatementKind::Insert,
         'users',
@@ -64,11 +64,22 @@ it('compiles insert with and without returning per dialect', function () {
     );
 
     expect(compileSql(new SqliteDialect(), $statement)['sql'])
-        ->toBe('INSERT INTO "users" ("name", "age") VALUES (?, ?)')
+        ->toBe('INSERT INTO "users" ("name", "age") VALUES (?, ?) RETURNING "id"')
         ->and(compileSql(new PostgresDialect(), $statement)['sql'])
         ->toBe('INSERT INTO "users" ("name", "age") VALUES (?, ?) RETURNING "id"')
         ->and(compileSql(new MysqlDialect(), $statement)['sql'])
-        ->toBe('INSERT INTO `users` (`name`, `age`) VALUES (?, ?)');
+        ->toBe('INSERT INTO `users` (`name`, `age`) VALUES (?, ?) RETURNING `id`');
+});
+
+it('omits RETURNING when the statement carries no columns', function () {
+    $statement = new Statement(
+        StatementKind::Insert,
+        'users',
+        data: ['name' => Param::str('Ada')],
+    );
+
+    expect(compileSql(new MysqlDialect(), $statement)['sql'])
+        ->toBe('INSERT INTO `users` (`name`) VALUES (?)');
 });
 
 it('compiles update and delete with their filter', function () {

@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 
+use STDW\Pdo\Config\MariaDbConfig;
 use STDW\Pdo\Config\MysqlConfig;
 use STDW\Pdo\Config\PostgresConfig;
 use STDW\Pdo\Config\SqliteConfig;
@@ -139,4 +140,112 @@ it('exposes the postgres credentials and options', function () {
         ->and($config->schema())->toBe('app')
         ->and($config->password())->toBe('secret')
         ->and($config->options())->toBe([PDO::ATTR_PERSISTENT => true]);
+});
+
+it('defaults emulateReturning to true on every config', function () {
+    expect(SqliteConfig::from(['database' => ':memory:'])->emulateReturning())->toBeTrue()
+        ->and(MysqlConfig::from([
+            'host' => 'localhost',
+            'port' => 3306,
+            'schema' => 'app',
+            'charset' => 'utf8mb4',
+            'username' => 'root',
+            'password' => 'secret',
+        ])->emulateReturning())->toBeTrue()
+        ->and(PostgresConfig::from([
+            'host' => 'db',
+            'port' => 5432,
+            'schema' => 'app',
+            'username' => 'postgres',
+            'password' => 'secret',
+        ])->emulateReturning())->toBeTrue();
+});
+
+it('honors an explicit boolean emulateReturning', function () {
+    expect(SqliteConfig::from(['database' => ':memory:', 'emulateReturning' => false])->emulateReturning())
+        ->toBeFalse();
+});
+
+it('rejects a non-boolean emulateReturning', function () {
+    SqliteConfig::from(['database' => ':memory:', 'emulateReturning' => 'yes']);
+})->throws(ConnectionException::class);
+
+it('defaults supportsReturning to true on every config', function () {
+    expect(SqliteConfig::from(['database' => ':memory:'])->supportsReturning())->toBeTrue()
+        ->and(MysqlConfig::from([
+            'host' => 'localhost',
+            'port' => 3306,
+            'schema' => 'app',
+            'charset' => 'utf8mb4',
+            'username' => 'root',
+            'password' => 'secret',
+        ])->supportsReturning())->toBeTrue()
+        ->and(PostgresConfig::from([
+            'host' => 'db',
+            'port' => 5432,
+            'schema' => 'app',
+            'username' => 'postgres',
+            'password' => 'secret',
+        ])->supportsReturning())->toBeTrue();
+});
+
+it('honors an explicit boolean supportsReturning', function () {
+    expect(SqliteConfig::from(['database' => ':memory:', 'supportsReturning' => false])->supportsReturning())
+        ->toBeFalse();
+});
+
+it('rejects a non-boolean supportsReturning', function () {
+    SqliteConfig::from(['database' => ':memory:', 'supportsReturning' => 'yes']);
+})->throws(ConnectionException::class);
+
+it('builds the mariadb dsn and exposes the generated-key policy', function () {
+    $config = MariaDbConfig::from([
+        'host' => 'localhost',
+        'port' => 3306,
+        'schema' => 'app',
+        'charset' => 'utf8mb4',
+        'username' => 'root',
+        'password' => 'secret',
+        'options' => [PDO::ATTR_EMULATE_PREPARES => false],
+    ]);
+
+    expect($config->dsn())->toBe('mysql:host=localhost;port=3306;dbname=app;charset=utf8mb4')
+        ->and($config->host())->toBe('localhost')
+        ->and($config->port())->toBe(3306)
+        ->and($config->schema())->toBe('app')
+        ->and($config->charset())->toBe('utf8mb4')
+        ->and($config->username())->toBe('root')
+        ->and($config->password())->toBe('secret')
+        ->and($config->options())->toBe([PDO::ATTR_EMULATE_PREPARES => false])
+        ->and($config->supportsReturning())->toBeTrue()
+        ->and($config->emulateReturning())->toBeTrue();
+});
+
+it('fails fast on a missing mariadb key', function () {
+    MariaDbConfig::from(['host' => 'localhost']);
+})->throws(ConnectionException::class);
+
+it('rejects an empty mariadb charset', function () {
+    MariaDbConfig::from([
+        'host' => 'localhost',
+        'port' => 3306,
+        'schema' => 'app',
+        'charset' => '   ',
+        'username' => 'root',
+        'password' => 'secret',
+    ]);
+})->throws(ConnectionException::class);
+
+it('allows turning off supportsReturning on mariadb for an older server', function () {
+    $config = MariaDbConfig::from([
+        'host' => 'localhost',
+        'port' => 3306,
+        'schema' => 'app',
+        'charset' => 'utf8mb4',
+        'username' => 'root',
+        'password' => 'secret',
+        'supportsReturning' => false,
+    ]);
+
+    expect($config->supportsReturning())->toBeFalse();
 });

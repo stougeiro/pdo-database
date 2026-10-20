@@ -3,9 +3,10 @@
 use STDW\Contract\Pdo\QueryTree\Type\ConditionOperator;
 use STDW\Contract\Pdo\QueryTree\Type\NullOrdering;
 use STDW\Contract\Pdo\QueryTree\Type\OrderDirection;
+use STDW\Pdo\Dialect\MariaDbDialect;
 use STDW\Pdo\Dialect\MysqlDialect;
 use STDW\Pdo\Dialect\PostgresDialect;
-use STDW\Pdo\Dialect\Spec\DialectSpecInterface;
+use STDW\Contract\Pdo\DialectInterface;
 use STDW\Pdo\Dialect\SqliteDialect;
 use STDW\Pdo\Exception\DriverException;
 use STDW\Pdo\QueryTree\Node\OrderNode;
@@ -14,7 +15,8 @@ use STDW\Pdo\QueryTree\QueryTreeBuilder;
 it('quotes a simple identifier with each engine delimiters', function () {
     expect((new SqliteDialect())->quote('name'))->toBe('"name"')
         ->and((new PostgresDialect())->quote('name'))->toBe('"name"')
-        ->and((new MysqlDialect())->quote('name'))->toBe('`name`');
+        ->and((new MysqlDialect())->quote('name'))->toBe('`name`')
+        ->and((new MariaDbDialect())->quote('name'))->toBe('`name`');
 });
 
 it('never quotes the wildcard and quotes a qualified name segment by segment', function () {
@@ -25,7 +27,8 @@ it('never quotes the wildcard and quotes a qualified name segment by segment', f
 
 it('escapes the closing delimiter to keep identifiers safe', function () {
     expect((new SqliteDialect())->quote('a"b'))->toBe('"a""b"')
-        ->and((new MysqlDialect())->quote('a`b'))->toBe('`a``b`');
+        ->and((new MysqlDialect())->quote('a`b'))->toBe('`a``b`')
+        ->and((new MariaDbDialect())->quote('a`b'))->toBe('`a``b`');
 });
 
 it('renders the common comparison operators', function () {
@@ -60,7 +63,8 @@ it('refuses ilike on a dialect without native support', function () {
 
 it('reports returning support per engine', function () {
     expect((new PostgresDialect())->supportsReturning())->toBeTrue()
-        ->and((new SqliteDialect())->supportsReturning())->toBeFalse()
+        ->and((new SqliteDialect())->supportsReturning())->toBeTrue()
+        ->and((new MariaDbDialect())->supportsReturning())->toBeTrue()
         ->and((new MysqlDialect())->supportsReturning())->toBeFalse();
 });
 
@@ -78,6 +82,7 @@ it('renders the limit/offset suffix per engine', function () {
         ->and((new SqliteDialect())->limitOffset(null))->toBe('')
         ->and((new SqliteDialect())->limitOffset($offsetOnly))->toBe(' LIMIT -1 OFFSET 5')
         ->and((new MysqlDialect())->limitOffset($offsetOnly))->toBe(' LIMIT 18446744073709551615 OFFSET 5')
+        ->and((new MariaDbDialect())->limitOffset($offsetOnly))->toBe(' LIMIT 18446744073709551615 OFFSET 5')
         ->and((new PostgresDialect())->limitOffset($offsetOnly))->toBe(' OFFSET 5');
 });
 
@@ -88,7 +93,8 @@ it('ignores a zero offset', function () {
 it('renders a mysql limit with an offset through the shared base', function () {
     $pagination = QueryTreeBuilder::pagination(['limit' => 10, 'offset' => 5]);
 
-    expect((new MysqlDialect())->limitOffset($pagination))->toBe(' LIMIT 10 OFFSET 5');
+    expect((new MysqlDialect())->limitOffset($pagination))->toBe(' LIMIT 10 OFFSET 5')
+        ->and((new MariaDbDialect())->limitOffset($pagination))->toBe(' LIMIT 10 OFFSET 5');
 });
 
 it('renders null ordering natively on sqlite and postgres', function () {
@@ -108,7 +114,10 @@ it('emulates null ordering on mysql through the whole order clause', function ()
 
     expect((new MysqlDialect())->orderClause($first))->toBe('`name` IS NULL ASC, `name` ASC')
         ->and((new MysqlDialect())->orderClause($last))->toBe('`name` IS NULL DESC, `name` ASC')
-        ->and((new MysqlDialect())->orderClause($plain))->toBe('`name` DESC');
+        ->and((new MysqlDialect())->orderClause($plain))->toBe('`name` DESC')
+        ->and((new MariaDbDialect())->orderClause($first))->toBe('`name` IS NULL ASC, `name` ASC')
+        ->and((new MariaDbDialect())->orderClause($last))->toBe('`name` IS NULL DESC, `name` ASC')
+        ->and((new MariaDbDialect())->orderClause($plain))->toBe('`name` DESC');
 });
 
 it('renders a keyset cursor over the ordered column, throwing without one', function () {
@@ -148,6 +157,18 @@ it('throws when a cursor key is requested without an order on engines without fa
     (new MysqlDialect())->cursorClause(7, [], $params);
 })->throws(DriverException::class);
 
+it('renders a keyset cursor over the ordered column on mariadb', function () {
+    $params = [];
+    $clause = (new MariaDbDialect())->cursorClause(
+        42,
+        [new OrderNode('id', OrderDirection::Asc)],
+        $params,
+    );
+
+    expect($clause)->toBe('`id` > ?')
+        ->and($params[0]->value())->toBe(42);
+});
+
 it('uses the base NULL ordering and ORDER BY rendering when a dialect only sets delimiters', function () {
     $dialect = new class extends STDW\Pdo\Dialect\DialectAbstracted {
         protected function delimiters(): array
@@ -170,7 +191,8 @@ it('uses the base NULL ordering and ORDER BY rendering when a dialect only sets 
 });
 
 it('exposes the spec contract on every dialect', function () {
-    expect(new SqliteDialect())->toBeInstanceOf(DialectSpecInterface::class)
-        ->and(new MysqlDialect())->toBeInstanceOf(DialectSpecInterface::class)
-        ->and(new PostgresDialect())->toBeInstanceOf(DialectSpecInterface::class);
+    expect(new SqliteDialect())->toBeInstanceOf(DialectInterface::class)
+        ->and(new MysqlDialect())->toBeInstanceOf(DialectInterface::class)
+        ->and(new MariaDbDialect())->toBeInstanceOf(DialectInterface::class)
+        ->and(new PostgresDialect())->toBeInstanceOf(DialectInterface::class);
 });

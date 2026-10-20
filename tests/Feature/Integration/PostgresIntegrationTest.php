@@ -35,8 +35,8 @@ beforeEach(function () use ($pgsql) {
     ConnectionRegistry::reset();
     ConnectionRegistry::configure(['default' => ['driver' => 'postgres'] + $config]);
 
-    ConnectionRegistry::get()->pdo()->exec('DROP TABLE IF EXISTS users');
-    ConnectionRegistry::get()->pdo()->exec(
+    ConnectionRegistry::get()->execute('DROP TABLE IF EXISTS users');
+    ConnectionRegistry::get()->execute(
         'CREATE TABLE users ('
         . 'id SERIAL PRIMARY KEY, '
         . 'name VARCHAR(255) NOT NULL, '
@@ -53,7 +53,7 @@ afterEach(function () {
 it('round-trips a record and returns the generated key through RETURNING', function () {
     $result = (new User())->create(['name' => 'Ada', 'age' => 36]);
 
-    expect($result->data())->toBe(['name' => 'Ada', 'age' => 36, 'id' => 1]);
+    expect($result->data())->toBe(['id' => 1, 'name' => 'Ada', 'age' => 36, 'active' => 1]);
 });
 
 it('supports native ILIKE on postgres', function () {
@@ -87,7 +87,7 @@ it('rolls back a transaction spanning model calls', function () {
 });
 
 it('returns the inserted key from the RETURNING column', function () {
-    $raw = ConnectionRegistry::resolve()->execute(new Statement(
+    $raw = ConnectionRegistry::resolve()->translate(new Statement(
         StatementKind::Insert,
         'users',
         data: ['name' => Param::str('Ada')],

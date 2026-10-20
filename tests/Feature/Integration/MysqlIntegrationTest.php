@@ -39,8 +39,8 @@ beforeEach(function () use ($mysql) {
     ConnectionRegistry::reset();
     ConnectionRegistry::configure(['default' => ['driver' => 'mysql'] + $config]);
 
-    ConnectionRegistry::get()->pdo()->exec('DROP TABLE IF EXISTS users');
-    ConnectionRegistry::get()->pdo()->exec(
+    ConnectionRegistry::get()->execute('DROP TABLE IF EXISTS users');
+    ConnectionRegistry::get()->execute(
         'CREATE TABLE users ('
         . 'id INT AUTO_INCREMENT PRIMARY KEY, '
         . 'name VARCHAR(255) NOT NULL, '
@@ -57,7 +57,7 @@ afterEach(function () {
 it('round-trips a record through the real engine and returns its key', function () {
     $result = (new User())->create(['name' => 'Ada', 'age' => 36]);
 
-    expect($result->data())->toBe(['name' => 'Ada', 'age' => 36, 'id' => 1]);
+    expect($result->data())->toBe(['id' => 1, 'name' => 'Ada', 'age' => 36, 'active' => 1]);
 
     $read = (new User())->read(['name' => 'Ada']);
 
@@ -83,7 +83,7 @@ it('runs aggregates and the generated-key path through the real engine', functio
     $user->create(['name' => 'Ada', 'active' => 1]);
     $user->create(['name' => 'Grace', 'active' => 0]);
 
-    $raw = ConnectionRegistry::resolve()->execute(new Statement(
+    $raw = ConnectionRegistry::resolve()->translate(new Statement(
         StatementKind::Select,
         'users',
         STDW\Pdo\QueryTree\QueryTreeBuilder::query(
@@ -100,7 +100,7 @@ it('binds a value that would break an interpolated query', function () {
     $user->create(['name' => "O'Brien; DROP TABLE users; --", 'age' => 1]);
 
     expect($user->list(['name' => "O'Brien; DROP TABLE users; --"])->count())->toBe(1)
-        ->and(ConnectionRegistry::get()->pdo()->query('SELECT COUNT(*) FROM users')->fetchColumn())->toBe(1);
+        ->and((int) ConnectionRegistry::get()->fetch('SELECT COUNT(*) AS total FROM users')['total'])->toBe(1);
 });
 
 it('rolls back a transaction spanning model calls', function () {
@@ -113,7 +113,7 @@ it('rolls back a transaction spanning model calls', function () {
 });
 
 it('keeps a typed param round-tripping through lastInsertId', function () {
-    $raw = ConnectionRegistry::resolve()->execute(new Statement(
+    $raw = ConnectionRegistry::resolve()->translate(new Statement(
         StatementKind::Insert,
         'users',
         data: ['name' => Param::str('Ada')],

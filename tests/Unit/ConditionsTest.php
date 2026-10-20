@@ -4,7 +4,7 @@ use STDW\Contract\Pdo\Param\ParamInterface;
 use STDW\Contract\Pdo\QueryTree\Node\ConditionNodeInterface as ConditionNodeContract;
 use STDW\Contract\Pdo\QueryTree\Type\ConditionOperator;
 use STDW\Contract\Pdo\QueryTree\Type\LogicOperator;
-use STDW\Pdo\Dialect\Spec\DialectSpecInterface;
+use STDW\Contract\Pdo\DialectInterface;
 use STDW\Pdo\Dialect\PostgresDialect;
 use STDW\Pdo\Dialect\SqliteDialect;
 use STDW\Pdo\Driver\Conditions;
@@ -48,7 +48,7 @@ function conditionStub(string $column, ConditionOperator $operator, null|ParamIn
  * @param array<array-key, mixed> $filter
  * @return array{sql: string, params: array<int, STDW\Contract\Pdo\Param\ParamInterface>}
  */
-function compileFilter(array $filter, ?DialectSpecInterface $dialect = null): array
+function compileFilter(array $filter, ?DialectInterface $dialect = null): array
 {
     return Conditions::compile(QueryTreeBuilder::filter($filter), $dialect ?? new SqliteDialect());
 }

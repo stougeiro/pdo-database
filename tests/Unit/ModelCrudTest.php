@@ -23,7 +23,7 @@ function recordingDriver(?RawInterface $returns = null): DriverInterface
         {
         }
 
-        public function execute(StatementInterface $statement): RawInterface
+        public function translate(StatementInterface $statement): RawInterface
         {
             $this->last = $statement;
 
@@ -93,14 +93,15 @@ it('delete reports the affected count', function () {
         ->and($driver->last?->kind())->toBe(StatementKind::Delete);
 });
 
-it('create passes the key column in returning', function () {
+it('create requests the whole record and names the key column', function () {
     $driver = recordingDriver(new Raw([], 1, 9));
     $model = new UserTestable();
     $model->fake = $driver;
 
     $model->create(['name' => 'Ada']);
 
-    expect($driver->last?->returning())->toBe(['id']);
+    expect($driver->last?->returning())->toBe(['*'])
+        ->and($driver->last?->key())->toBe('id');
 });
 
 it('wraps raw values into params so no raw value reaches the statement', function () {

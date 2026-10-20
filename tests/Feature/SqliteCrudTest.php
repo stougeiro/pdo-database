@@ -13,7 +13,7 @@ beforeEach(function () {
         'default' => ['driver' => 'sqlite', 'database' => ':memory:'],
     ]);
 
-    ConnectionRegistry::get()->pdo()->exec(
+    ConnectionRegistry::get()->execute(
         'CREATE TABLE users ('
         . 'id INTEGER PRIMARY KEY AUTOINCREMENT, '
         . 'name TEXT NOT NULL, '
@@ -27,12 +27,12 @@ afterEach(function () {
     ConnectionRegistry::reset();
 });
 
-it('creates a record and returns its generated key', function () {
+it('creates a record and returns the stored row with database-filled columns', function () {
     $result = (new User())->create(['name' => 'Ada', 'age' => 36]);
 
     expect($result->isValid())->toBeTrue()
         ->and($result->count())->toBe(1)
-        ->and($result->data())->toBe(['name' => 'Ada', 'age' => 36, 'id' => 1]);
+        ->and($result->data())->toBe(['id' => 1, 'name' => 'Ada', 'age' => 36, 'active' => 1]);
 });
 
 it('reads a single record by filter', function () {
@@ -156,7 +156,7 @@ it('runs aggregates through the driver', function () {
         filter: ['active' => 1],
     );
 
-    $raw = ConnectionRegistry::resolve()->execute(new Statement(StatementKind::Select, 'users', $query));
+    $raw = ConnectionRegistry::resolve()->translate(new Statement(StatementKind::Select, 'users', $query));
 
     expect($raw->rows())->toHaveCount(1)
         ->and($raw->rows()[0]['total'])->toBe(2);
@@ -167,11 +167,11 @@ it('rejects a write without a filter', function () {
 })->throws(STDW\Pdo\Exception\StatementException::class);
 
 it('treats a zero last insert id as no generated key', function () {
-    ConnectionRegistry::get()->pdo()->exec(
+    ConnectionRegistry::get()->execute(
         'CREATE TABLE codes (code TEXT PRIMARY KEY, label TEXT) WITHOUT ROWID'
     );
 
-    $raw = ConnectionRegistry::resolve()->execute(new Statement(
+    $raw = ConnectionRegistry::resolve()->translate(new Statement(
         StatementKind::Insert,
         'codes',
         data: ['code' => Param::str('ABC'), 'label' => Param::str('Beta')],

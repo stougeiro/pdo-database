@@ -14,9 +14,13 @@ function fakeDriver(null|int|string $insertedId): DriverInterface
         ) {
         }
 
-        public function execute(StatementInterface $statement): RawInterface
+        public function translate(StatementInterface $statement): RawInterface
         {
-            return new Raw([], 1, $this->insertedId);
+            $rows = $this->insertedId === null
+                ? []
+                : [['name' => 'Ada', 'id' => $this->insertedId]];
+
+            return new Raw($rows, 1, $this->insertedId);
         }
     };
 }
@@ -31,7 +35,7 @@ it('creates without the registry when a driver is injected', function () {
         ->and($result->count())->toBe(1);
 });
 
-it('returns the input untouched when no key was generated', function () {
+it('returns the input untouched when the driver returns no stored record', function () {
     $model = new UserTestable();
     $model->fake = fakeDriver(null);
 

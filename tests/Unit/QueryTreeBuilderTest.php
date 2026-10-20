@@ -94,7 +94,7 @@ it('lowers a HAVING group through the public having() facade', function () {
     expect($group->nodes())->toHaveCount(1);
 });
 
-it('renders RETURNING only on engines that support it', function () {
+it('renders RETURNING whenever the statement carries columns for every dialect', function () {
     $insert = new Statement(
         StatementKind::Insert,
         'users',
@@ -103,7 +103,7 @@ it('renders RETURNING only on engines that support it', function () {
     );
 
     expect((new Compiler(new SqliteDialect()))->compile($insert)['sql'])
-        ->toBe('INSERT INTO "users" ("name") VALUES (?)')
+        ->toBe('INSERT INTO "users" ("name") VALUES (?) RETURNING "id"')
         ->and((new Compiler(new PostgresDialect()))->compile($insert)['sql'])
         ->toBe('INSERT INTO "users" ("name") VALUES (?) RETURNING "id"');
 });

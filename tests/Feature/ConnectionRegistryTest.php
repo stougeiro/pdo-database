@@ -71,10 +71,17 @@ it('cannot turn off the error mode or fetch mode invariants', function () {
         ],
     ]);
 
-    $pdo = ConnectionRegistry::get()->pdo();
+    $connection = ConnectionRegistry::get();
 
-    expect($pdo->getAttribute(PDO::ATTR_ERRMODE))->toBe(PDO::ERRMODE_EXCEPTION)
-        ->and($pdo->getAttribute(PDO::ATTR_DEFAULT_FETCH_MODE))->toBe(PDO::FETCH_ASSOC);
+    $connection->execute('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)');
+    $connection->execute('INSERT INTO users (id, name) VALUES (1, \'Ada\')');
+
+    $row = $connection->fetch('SELECT id, name FROM users WHERE id = 1');
+
+    expect($row)->toBe(['id' => 1, 'name' => 'Ada']);
+
+    expect(fn () => $connection->fetch('SELECT * FROM missing_table'))
+        ->toThrow(STDW\Pdo\Exception\ConnectionException::class);
 });
 
 it('rejects an empty connection name', function () {
@@ -85,9 +92,10 @@ it('rejects a non-string driver nickname', function () {
     ConnectionRegistry::configure(['default' => ['driver' => 123]]);
 })->throws(ConnectionException::class);
 
-it('exposes the sqlite, mysql and postgres nicknames', function () {
+it('exposes the sqlite, mysql, mariadb and postgres nicknames', function () {
     expect(ConnectionRegistry::SQLITE)->toBe('sqlite')
         ->and(ConnectionRegistry::MYSQL)->toBe('mysql')
+        ->and(ConnectionRegistry::MARIADB)->toBe('mariadb')
         ->and(ConnectionRegistry::POSTGRES)->toBe('postgres');
 });
 
@@ -95,6 +103,26 @@ it('builds a mysql connection and driver lazily without connecting', function ()
     ConnectionRegistry::configure([
         'default' => [
             'driver' => 'mysql',
+            'host' => 'localhost',
+            'port' => 3306,
+            'schema' => 'app',
+            'charset' => 'utf8mb4',
+            'username' => 'root',
+            'password' => 'secret',
+        ],
+    ]);
+
+    $connection = ConnectionRegistry::get();
+
+    expect($connection)->toBeInstanceOf(STDW\Pdo\Connection\PdoConnection::class)
+        ->and($connection->isConnected())->toBeFalse()
+        ->and(ConnectionRegistry::resolve())->toBeInstanceOf(DriverInterface::class);
+});
+
+it('builds a mariadb connection and driver lazily without connecting', function () {
+    ConnectionRegistry::configure([
+        'default' => [
+            'driver' => 'mariadb',
             'host' => 'localhost',
             'port' => 3306,
             'schema' => 'app',
