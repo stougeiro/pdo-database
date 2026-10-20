@@ -173,7 +173,7 @@ final class QueryTreeBuilder implements QueryTreeBuilderInterface
         $identifiers = [];
 
         foreach ($values as $value) {
-            if (! is_string($value) || trim($value) === '') {
+            if ( ! is_string($value) || trim($value) === '') {
                 throw QueryTreeException::invalid(sprintf('%s identifiers must be non-empty strings', $label));
             }
 

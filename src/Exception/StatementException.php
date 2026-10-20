@@ -36,4 +36,9 @@ final class StatementException extends DatabaseException implements StatementExc
     {
         return self::invalid('returning columns are only meaningful on an insert');
     }
+
+    public static function dataMustBeParams(string $column): self
+    {
+        return self::invalid(sprintf('every value must be a typed Param; column "%s" is not', $column));
+    }
 }

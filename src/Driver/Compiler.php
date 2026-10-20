@@ -189,7 +189,7 @@ final class Compiler
     {
         $pagination = $query->pagination();
 
-        if (! $pagination instanceof CursorPaginationNodeInterface || $pagination->cursor() === null) {
+        if ( ! $pagination instanceof CursorPaginationNodeInterface || $pagination->cursor() === null) {
             return null;
         }
 

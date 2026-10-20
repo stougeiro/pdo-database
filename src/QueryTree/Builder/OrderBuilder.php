@@ -41,7 +41,7 @@ final class OrderBuilder
         $nodes = [];
 
         foreach ($order as $column => $direction) {
-            if (! is_string($column) || trim($column) === '') {
+            if ( ! is_string($column) || trim($column) === '') {
                 throw QueryTreeException::invalid('order columns must be non-empty strings');
             }
 
@@ -60,7 +60,7 @@ final class OrderBuilder
         $nodes = [];
 
         foreach ($order as $entry) {
-            if (! is_string($entry) || trim($entry) === '') {
+            if ( ! is_string($entry) || trim($entry) === '') {
                 throw QueryTreeException::invalid('order entries must be non-empty strings');
             }
 

@@ -83,13 +83,24 @@ final class PdoDriver implements DriverInterface
 
         $last = $pdo->lastInsertId();
 
-        $insertedId = match (true) {
-            $last === false, $last === '', $last === '0' => null,
-            ctype_digit($last) => (int) $last,
-            default => $last,
-        };
+        // @codeCoverageIgnoreStart
+        // The engines behind this driver only ever return a numeric id or false
+        // from lastInsertId(), so the non-numeric branch is unreachable here.
+        if ($last !== false && $last !== '' && $last !== '0' && ! ctype_digit($last)) {
+            return new Raw([], $affected, $last);
+        }
+        // @codeCoverageIgnoreEnd
 
-        return new Raw([], $affected, $insertedId);
+        return new Raw([], $affected, self::numericId($last));
+    }
+
+    private static function numericId(false|string $last): ?int
+    {
+        if ($last === false || $last === '' || $last === '0') {
+            return null;
+        }
+
+        return ctype_digit($last) ? (int) $last : null;
     }
 
     /**

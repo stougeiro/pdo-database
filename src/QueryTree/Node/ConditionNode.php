@@ -84,7 +84,7 @@ final readonly class ConditionNode implements ConditionNodeInterface
      */
     private static function assertList(string $column, ParamInterface|array $value, int $min, ?int $max): array
     {
-        if (! is_array($value) || ! array_is_list($value)) {
+        if ( ! is_array($value) || ! array_is_list($value)) {
             throw QueryTreeException::invalidCondition($column, 'operator requires a list of typed values');
         }
 
@@ -97,7 +97,7 @@ final readonly class ConditionNode implements ConditionNodeInterface
         }
 
         foreach ($value as $item) {
-            if (! $item instanceof ParamInterface) {
+            if ( ! $item instanceof ParamInterface) {
                 throw QueryTreeException::invalidCondition($column, 'every list entry must be a typed Param');
             }
         }
@@ -112,7 +112,7 @@ final readonly class ConditionNode implements ConditionNodeInterface
      */
     private static function assertSingle(string $column, ParamInterface|array $value): array
     {
-        if (! $value instanceof ParamInterface) {
+        if ( ! $value instanceof ParamInterface) {
             throw QueryTreeException::invalidCondition($column, 'operator requires a single typed Param');
         }
 

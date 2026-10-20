@@ -28,7 +28,7 @@ final class PaginationBuilder
     public static function make(array $pagination): PaginationNodeInterface
     {
         foreach (array_keys($pagination) as $key) {
-            if (! is_string($key) || ! in_array($key, self::KEYS, true)) {
+            if ( ! is_string($key) || ! in_array($key, self::KEYS, true)) {
                 throw QueryTreeException::invalid(sprintf('unknown pagination key "%s"', (string) $key));
             }
         }
@@ -59,7 +59,7 @@ final class PaginationBuilder
             return null;
         }
 
-        if (! is_int($value) || $value < 0) {
+        if ( ! is_int($value) || $value < 0) {
             throw QueryTreeException::invalid(sprintf('pagination key "%s" must be an integer >= 0', $key));
         }
 

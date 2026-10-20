@@ -64,7 +64,7 @@ final class ConnectionRegistry
 
             $driver = $definition['driver'] ?? null;
 
-            if (! is_string($driver) || ! in_array($driver, [self::SQLITE, self::MYSQL, self::POSTGRES], true)) {
+            if ( ! is_string($driver) || ! in_array($driver, [self::SQLITE, self::MYSQL, self::POSTGRES], true)) {
                 throw ConnectionException::unknownDriver(is_string($driver) ? $driver : get_debug_type($driver));
             }
 
@@ -123,7 +123,7 @@ final class ConnectionRegistry
      */
     private static function definition(string $name): array
     {
-        if (! isset(self::$definitions[$name])) {
+        if ( ! isset(self::$definitions[$name])) {
             throw ConnectionException::notConfigured($name);
         }
 
@@ -139,7 +139,9 @@ final class ConnectionRegistry
             self::SQLITE => new PdoConnection(SqliteConfig::from($config)),
             self::MYSQL => new PdoConnection(MysqlConfig::from($config)),
             self::POSTGRES => new PdoConnection(PostgresConfig::from($config)),
+            // @codeCoverageIgnoreStart configure() already rejected any other nickname.
             default => throw ConnectionException::unknownDriver($driver),
+            // @codeCoverageIgnoreEnd
         };
     }
 
@@ -149,7 +151,9 @@ final class ConnectionRegistry
             self::SQLITE => new SqliteDialect(),
             self::MYSQL => new MysqlDialect(),
             self::POSTGRES => new PostgresDialect(),
+            // @codeCoverageIgnoreStart configure() already rejected any other nickname.
             default => throw ConnectionException::unknownDriver($driver),
+            // @codeCoverageIgnoreEnd
         };
     }
 }

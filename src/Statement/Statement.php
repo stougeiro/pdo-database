@@ -20,20 +20,39 @@ use STDW\Pdo\Exception\StatementException;
  */
 final readonly class Statement implements StatementInterface
 {
+    private readonly StatementKind $kind;
+
+    private readonly string $table;
+
+    private readonly ?QueryInterface $query;
+
+    /** @var array<string, ParamInterface> */
+    private readonly array $data;
+
+    /** @var array<int, string> */
+    private readonly array $returning;
+
+
     /**
-     * @param array<string, ParamInterface> $data
+     * @param array<string, mixed> $data
      * @param array<int, string> $returning
      */
     public function __construct(
-        private StatementKind $kind,
-        private string $table,
-        private ?QueryInterface $query = null,
-        private array $data = [],
-        private array $returning = [],
+        StatementKind $kind,
+        string $table,
+        ?QueryInterface $query = null,
+        array $data = [],
+        array $returning = [],
     ) {
         if (trim($table) === '') {
             throw StatementException::invalid('the target table cannot be empty');
         }
+
+        $this->kind = $kind;
+        $this->table = $table;
+        $this->query = $query;
+        $this->data = self::typedData($data);
+        $this->returning = $returning;
 
         $this->assertEnvelope();
     }
@@ -64,6 +83,29 @@ final readonly class Statement implements StatementInterface
         return $this->returning;
     }
 
+
+    /**
+     * Every written value must already be a typed Param, so the compiler can
+     * trust the type and no raw value ever reaches the bind stage. Fail-fast
+     * at the envelope edge, before any translation or execution.
+     *
+     * @param array<string, mixed> $data
+     * @return array<string, ParamInterface>
+     */
+    private static function typedData(array $data): array
+    {
+        $typed = [];
+
+        foreach ($data as $column => $param) {
+            if ( ! $param instanceof ParamInterface) {
+                throw StatementException::dataMustBeParams($column);
+            }
+
+            $typed[$column] = $param;
+        }
+
+        return $typed;
+    }
 
     private function assertEnvelope(): void
     {
@@ -102,7 +144,7 @@ final readonly class Statement implements StatementInterface
 
     private function assertUpdate(bool $hasWhere): void
     {
-        if (! $hasWhere) {
+        if ( ! $hasWhere) {
             throw StatementException::unfilteredWrite('update');
         }
 
@@ -117,7 +159,7 @@ final readonly class Statement implements StatementInterface
 
     private function assertDelete(bool $hasWhere): void
     {
-        if (! $hasWhere) {
+        if ( ! $hasWhere) {
             throw StatementException::unfilteredWrite('delete');
         }
 

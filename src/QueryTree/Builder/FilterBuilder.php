@@ -55,7 +55,7 @@ final class FilterBuilder
         $nodes = [];
 
         foreach ($predicate as $key => $value) {
-            if (! is_string($key)) {
+            if ( ! is_string($key)) {
                 throw QueryTreeException::invalid('predicate keys must be strings');
             }
 
@@ -81,7 +81,7 @@ final class FilterBuilder
                 continue;
             }
 
-            if (! is_array($clause)) {
+            if ( ! is_array($clause)) {
                 throw QueryTreeException::invalid('a clause must be a predicate, a logic token or a nested group');
             }
 
@@ -123,7 +123,7 @@ final class FilterBuilder
      */
     private static function listValue(string $column, mixed $value): array
     {
-        if (! is_array($value) || ! array_is_list($value)) {
+        if ( ! is_array($value) || ! array_is_list($value)) {
             throw QueryTreeException::invalidCondition($column, 'operator requires a list of values');
         }
 
@@ -135,7 +135,7 @@ final class FilterBuilder
      */
     private static function pairValue(string $column, mixed $value): array
     {
-        if (! is_array($value) || ! array_is_list($value) || count($value) !== 2) {
+        if ( ! is_array($value) || ! array_is_list($value) || count($value) !== 2) {
             throw QueryTreeException::invalidCondition($column, 'operator requires exactly two values');
         }
 
@@ -194,7 +194,7 @@ final class FilterBuilder
     {
         $normalized = strtoupper(trim($token));
 
-        if (! in_array($normalized, self::LOGIC, true)) {
+        if ( ! in_array($normalized, self::LOGIC, true)) {
             throw QueryTreeException::invalidLogic($token);
         }
 
