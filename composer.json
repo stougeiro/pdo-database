@@ -1,6 +1,6 @@
 {
     "name": "stougeiro/pdo-database",
-    "description": "",
+    "description": "A dialect-agnostic PDO model for SQLite, MySQL, MariaDB and PostgreSQL.",
     "type": "library",
     "minimum-stability": "stable",
     "prefer-stable": true,
@@ -12,6 +12,20 @@
         }
     ],
     "keywords": [
+        "pdo",
+        "database",
+        "sql",
+        "sqlite",
+        "mysql",
+        "mariadb",
+        "postgresql",
+        "model",
+        "driver",
+        "query-builder",
+        "pagination",
+        "transactions",
+        "prepared-statements",
+        "emulation"
     ],
     "support": {
         "issues": "https://github.com/stougeiro/pdo-database/issues",
@@ -30,7 +44,7 @@
     },
     "require": {
         "php": ">=8.2",
-        "stougeiro/pdo-contract": "^0.1.0"
+        "stougeiro/pdo-contract": "^0.3.0"
     },
     "autoload-dev": {
         "psr-4": {
@@ -44,8 +58,8 @@
     "scripts": {
         "stan": "vendor/bin/phpstan",
         "pest": "vendor/bin/pest",
-        "cover": "vendor/bin/pest --coverage --colors=never",
-        "bench": "BENCH=1 vendor/bin/pest tests/Performance --colors=never"
+        "cover": "vendor/bin/pest --coverage",
+        "bench": "BENCH=1 vendor/bin/pest tests/Performance"
     },
     "config": {
         "allow-plugins": {
